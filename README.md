@@ -191,7 +191,7 @@ docker run -d --name fraud-detection-app -p 8000:8000 fraud-detection-api
 ---
 
 ## License
-This project does not yet include a LICENSE file. If you want to open-source it, consider adding an `MIT` or similar license.
+MIT License
 
 ---
 
