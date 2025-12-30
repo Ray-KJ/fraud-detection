@@ -32,7 +32,7 @@ if st.sidebar.button("Analyze Transaction"):
         col1, col2 = st.columns(2)
         
         with col1:
-            if prediction == 1:
+            if prediction == 'FRAUD':
                 st.error(" HIGH RISK: Potential Fraud Detected!")
             else:
                 st.success(" LOW RISK: Transaction Appears Safe.")
