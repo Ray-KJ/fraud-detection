@@ -1,0 +1,17 @@
+# Data
+data/raw/
+data/processed/
+*.csv
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Models
+# (We usually keep models, but if they are >100MB, we ignore them)
+
+# Environment
+.env
+venv/
