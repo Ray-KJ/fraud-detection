@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
+import re
+import os
 
 st.set_page_config(page_title="Fraud Detective", layout="wide")
 
@@ -51,3 +53,35 @@ if st.sidebar.button("Analyze Transaction"):
 
     except Exception as e:
         st.error(f"Error connecting to API: {e}. Make sure your Docker container is running!")
+
+def parse_logs(file_path):
+    data = []
+    if not os.path.exists(file_path):
+        return pd.DataFrame()
+    with open(file_path, 'r') as f:
+        for line in f:
+            if 'verified' in line:
+                ts = line.split(' - ')[0]
+                score = re.search(r'\((0\.\d+)\)', line).group(1)
+                data.append({'Timestamp':ts, 'Fraud_Score': float(score)})
+        return pd.DataFrame(data)
+    
+st.divider()
+st.header("Model Health Monitor")
+current_script_dir = os.path.dirname(os.path.abspath(__file__))
+main_dir = os.path.dirname(current_script_dir)
+target_log = os.path.join(main_dir, "fraud_api.log")
+if os.path.exists(target_log):
+    try:
+        df_logs = parse_logs(target_log)
+        if not df_logs.empty:
+            st.subheader('Recent Prediction Scores')
+            st.line_chart(df_logs.set_index('Timestamp'))
+            avg_score = df_logs['Fraud_Score'].mean()
+            st.metric('Average Fraud Probability', f'{avg_score:.4f}')
+        else:
+            st.info('No logs found yet. Make a prediction to see data!')
+    except Exception as e:
+        st.error("Error reading data: {e}")
+else:
+    st.error(f"Could not find log at: {target_log}")

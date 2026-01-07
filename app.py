@@ -2,11 +2,19 @@ import joblib
 import pandas as pd
 import numpy as np
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import List
 import xgboost as xgb
+import logging
 
 app = FastAPI(title="Fraud Detection API")
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.FileHandler('fraud_api.log'), 
+              logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
 
 @app.get("/")
 def health_check():
@@ -21,27 +29,43 @@ scaler = joblib.load('models/scaler.pkl')
 # 2. Define the input structure
 class TransactionData(BaseModel):
     # Expecting: [Time, V1, V2, ... V28, Amount]
-    features: List[float]
+    features: List[float] = Field(..., json_schema_extra={"example": [0.0] * 30})
+    @field_validator('features')
+    @classmethod
+    def check_feature_length(cls, v: List[float]) -> List[float]:
+        if len(v) != 30:
+            raise ValueError(f"Expected exactly 30 features, but got {len(v)}")
+        return v
 
 @app.post("/predict")
 def predict(data: TransactionData):
+    # # Log that a request started
+    logger.info("New prediction request received.")
     # Convert to DataFrame
     # Note: Column names must match the order used in training
-    feature_names = ['Time'] + [f'V{i}' for i in range(1, 29)] + ['Amount']
-    df = pd.DataFrame([data.features], columns=feature_names)
+    try:
+        feature_names = ['Time'] + [f'V{i}' for i in range(1, 29)] + ['Amount']
+        df = pd.DataFrame([data.features], columns=feature_names)
     
-    # 3. Apply the SAME scaling we used in training
-    # This is critical to avoid Training-Serving Skew
-    df[['Time', 'Amount']] = scaler.transform(df[['Time', 'Amount']])
+        # 3. Apply the SAME scaling we used in training
+        # This is critical to avoid Training-Serving Skew
+        df[['Time', 'Amount']] = scaler.transform(df[['Time', 'Amount']])
     
-    # 4. Make Prediction
-    prediction = model.predict(df)
-    probability = model.predict_proba(df)[0][1]
+        # 4. Make Prediction
+        prediction = model.predict(df)
+        probability = model.predict_proba(df)[0][1]
     
-    result = "FRAUD" if prediction[0] == 1 else "NOT FRAUD"
+        result = "FRAUD" if prediction[0] == 1 else "NOT FRAUD"
+        # Log the result
+        if result == "FRAUD":
+            logger.warning(f"FRAUD DETECTED! Probability: {probability:.4f}")
+        else:
+            logger.info(f"Transaction verified: NOT FRAUD ({probability:.4f})")
     
-    return {
-        "prediction": result,
-        "fraud_probability": round(float(probability), 4),
-        "status": "success"
-    }
+        return {
+            "prediction": result,
+            "fraud_probability": round(float(probability), 4),
+            "status": "success"
+        }
+    except Exception as e:
+        logger.error(f"Critical Failure: {str(e)}")

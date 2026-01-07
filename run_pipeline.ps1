@@ -25,7 +25,7 @@ Write-Host "Step 6: Launching Container..." -ForegroundColor Blue
 # This stops any old container running on port 8000 before starting the new one
 docker stop fraud-detection-app 2>$null
 docker rm fraud-detection-app 2>$null
-docker run -d --name fraud-detection-app -p 8000:8000 fraud-detection-api
+docker run -d --name fraud-detection-app -p 8000:8000 -v "${PWD}:/app"fraud-detection-api
 
 Write-Host "Pipeline Complete!" -ForegroundColor Green
 Write-Host "API is live at http://localhost:8000/docs" -ForegroundColor Green
